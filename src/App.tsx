@@ -1,4 +1,4 @@
-interface Repr {
+interface VisualBddNode {
   key: string;
   depth: number;
   value?: number;
@@ -7,11 +7,15 @@ interface Repr {
 
 export default function App() {
   // The boolean function that will be turned into a binary decision diagram.
-  const func = (A: number, B: number, C: number) => !!A && !B && !!C;
+  const func = (A: number, B: number, C: number) => (!!A && !!B || !!C);
 
   const bdd = booleanFunctionToBDD(func);
 
-  function createRepr(n: BDDNode, d: number, isLeft?: boolean): Repr {
+  function createVisualizationBDDNode(
+    n: BDDNode,
+    d: number,
+    isLeft?: boolean
+  ): VisualBddNode {
     return {
       key: n.variable,
       depth: d,
@@ -20,13 +24,14 @@ export default function App() {
     };
   }
 
+  // function used in order to create an array of VisualBDDNode for rendering
   function createData(
     node: BDDNode,
-    data: Repr[] = [],
+    data: VisualBddNode[] = [],
     d: number = 0,
     isLeft?: boolean
-  ): Repr[] {
-    data.push(createRepr(node, d, isLeft));
+  ): VisualBddNode[] {
+    data.push(createVisualizationBDDNode(node, d, isLeft));
     if (typeof node.low !== "number") {
       createData(node.low, data, d + 1, true);
     } else {
@@ -50,77 +55,111 @@ export default function App() {
     return data;
   }
 
-  function isLeaves(depth: number) {
-    return Math.max(...d.map((el) => el.depth)) === depth;
+  function isLeaf(depth: number) {
+    return Math.max(...bddNodes.map((el) => el.depth)) === depth;
   }
 
-  const MAX_WIDTH = 30;
+  const bddNodes = createData(bdd);
+  
+  const MAX_WIDTH = 20 * Math.max(...bddNodes.map(n => n.depth));
   const HEIGHT = 5;
 
-  const d = createData(bdd);
 
-  return d.map((e, idx) => {
-    const idxsWithSameDepth = d.reduce<number[]>(
-      (prev, curr, i) => (curr.depth === e.depth ? [...prev, i] : prev),
-      []
-    );
-    const width = MAX_WIDTH / d.filter((el) => el.depth === e.depth).length;
-    const left = width * idxsWithSameDepth.findIndex((elem) => elem === idx);
-    const top = HEIGHT * e.depth;
+  return (
+    <div
+      style={{
+        width: "100vw",
+        height: "100vh",
+        display: "flex",
+        position: "relative",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+        }}
+      >
+        {bddNodes.map((node, idx) => {
+          const idxsWithSameDepth = bddNodes.reduce<number[]>(
+            (prev, curr, i) =>
+              curr.depth === node.depth ? [...prev, i] : prev,
+            []
+          );
+          const width =
+            MAX_WIDTH / bddNodes.filter((el) => el.depth === node.depth).length;
+          const left =
+            width * idxsWithSameDepth.findIndex((elem) => elem === idx);
+          const top = HEIGHT * node.depth;
 
-    return (
-      <>
-        <div
-          style={{
-            position: "absolute",
-            top: `${top}rem`,
-            left: `${left}rem`,
-            width: `${width}rem`,
-            border: `1px ${e.isLeft === undefined ? "none" : "solid"} black`,
-            alignItems: "center",
-            justifyContent: "center",
-            display: "flex",
-            zIndex: 2,
-            backgroundColor: "white",
-          }}
-          key={e.depth + e.key + e.value + e.isLeft + Math.random()}
-        >
-          {e.key}
-        </div>
-        {!isLeaves(e.depth) && (
-          <div
-            style={{
-              position: "absolute",
-              left: `${left + width / 2}rem`,
-              top: `${top + 1}rem`,
-              zIndex: 1,
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                width: "1px",
-                height: `${HEIGHT}rem`,
-                borderLeft: "dashed",
-                transform: `translateX(-${2}rem) rotate(30deg)`,
-                zIndex: 1,
-              }}
-            ></div>
-            <div
-              style={{
-                position: "absolute",
-                width: "1px",
-                height: `${HEIGHT}rem`,
-                borderLeft: "solid",
-                transform: `translateX(${2}rem) rotate(-30deg)`,
-                zIndex: 1,
-              }}
-            ></div>
-          </div>
-        )}
-      </>
-    );
-  });
+          return (
+            <>
+              <div
+                style={{
+                  position: "absolute",
+                  top: `${top}rem`,
+                  left: `${left}rem`,
+                  width: `${width}rem`,
+                  border: `1px ${
+                    node.isLeft === undefined ? "none" : "solid"
+                  } black`,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  display: "flex",
+                  zIndex: 2,
+                  backgroundColor: "white",
+                  color: "black",
+                }}
+                key={
+                  node.depth +
+                  node.key +
+                  node.value +
+                  node.isLeft +
+                  Math.random()
+                }
+              >
+                {node.key}
+              </div>
+              {!isLeaf(node.depth) && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: `${left + width / 2}rem`,
+                    top: `${top + 1}rem`,
+                    zIndex: 1,
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      width: "1px",
+                      height: `${HEIGHT}rem`,
+                      borderLeft: "dashed",
+                      transform: `translateX(-${2}rem) rotate(30deg)`,
+                      zIndex: 1,
+                    }}
+                  ></div>
+                  <div
+                    style={{
+                      position: "absolute",
+                      width: "1px",
+                      height: `${HEIGHT}rem`,
+                      borderLeft: "solid",
+                      transform: `translateX(${2}rem) rotate(-30deg)`,
+                      zIndex: 1,
+                    }}
+                  ></div>
+                </div>
+              )}
+            </>
+          );
+        })}
+      </div>
+      <div style={{position: "absolute", bottom: `0`}}>
+      <div>Liniile intrerupte reprezinta faptul ca variabila de deasupra are valoarea falsa</div>
+      <div>Liniile continue reprezinta faptul ca variabila de deasupra are valoarea adevarata</div>
+      </div>
+    </div>
+  );
 }
 
 interface BDDNode {
@@ -129,40 +168,24 @@ interface BDDNode {
   high: BDDNode | number;
 }
 
-function booleanFunctionToBDD(func: (...vars: number[]) => boolean): {
-  bdd: BDDNode;
-} {
-  const variableToNodeMap: Map<string, BDDNode> = new Map();
-  let nodes: BDDNode[] = [];
-
-  function getNode(
-    variable: string,
-    low: BDDNode | number,
-    high: BDDNode | number
-  ){
-    let node = variableToNodeMap.get(
-      `${variable}_${low}_${high}_${Math.random()}`
-    );
-    if (!node) {
-      node = { variable, low, high };
-      nodes.push(node);
-      variableToNodeMap.set(`${variable}_${low}_${high}`, node);
-    }
-    return node;
-  };
-
-  function buildBDD(variables: string[], values: number[], depth: number){
+function booleanFunctionToBDD(func: (...vars: number[]) => boolean): BDDNode {
+  function buildBDD(
+    variables: string[],
+    values: number[] = [],
+    depth: number = 0
+  ) {
     if (depth >= variables.length) {
       return func(...values) ? 1 : 0;
     }
 
     const low = buildBDD(variables, [...values, 0], depth + 1);
     const high = buildBDD(variables, [...values, 1], depth + 1);
-    return getNode(variables[depth], low, high);
-  };
+    const newNode: BDDNode = { variable: variables[depth], low, high };
+    return newNode;
+  }
 
-  // UPDATE HERE
-  const bdd = buildBDD(["A", "B", "C"], [], 0);
+  // update here as well when adding another variable to the function
+  const bdd = buildBDD(["A", "B", "C"]);
 
-  return bdd;
+  return bdd as BDDNode;
 }
